@@ -3,7 +3,7 @@
 <meta charset="UTF-8">
 <title>Ta的关系图谱</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
-<style>
+<style><!-- 第四行title包裹的是标题，可以任意更改 -->
 body{margin:0;padding:0;background:linear-gradient(135deg,#e0f0ff,#c5e3ff);font-family:"Microsoft YaHei",sans-serif;overflow:hidden;}
 .container{position:relative;width:100vw;height:100vh;}
 #graph{width:100%;height:100%;}
@@ -30,16 +30,16 @@ body{margin:0;padding:0;background:linear-gradient(135deg,#e0f0ff,#c5e3ff);font-
 .avatar-image{width:100%;height:100%;object-fit:cover;}
 </style>
 </head>
-<body>
+<body><!-- 从这里开始你就需要大规模修改了，这里是玩家以及Ta好友的数据，第一位是中心用户(也就是指定的玩家) -->
 <div class="container">
   <div id="bg-elements"></div>
   <div class="header">
     <div class="header-main">
-      <img class="user-avatar" src="http://图片url">
+      <img class="user-avatar" src="http://图片url"><!-- 填入主用户的头像url -->
       <div class="user-info">
-        <h2>主用户</h2>
-        <div class="user-title">称号</div>
-        <div class="clan-info">战队的名称</div>
+        <h2>主用户</h2><!-- 填入主用户的昵称 -->
+        <div class="user-title">称号</div><!-- 填入主用户的称号 -->
+        <div class="clan-info">战队的名称</div><!-- 填入主用户的战队名称 -->
       </div>
     </div>
     <div class="intimacy-display">亲密度满100的好友才能出现在关系图谱</div>
@@ -60,13 +60,13 @@ body{margin:0;padding:0;background:linear-gradient(135deg,#e0f0ff,#c5e3ff);font-
 <script>
 const me={
   id:"center",
-  name:"中心节点的用户昵称",
-  avatar:"https://图片url",
-  level:30,
-  gender:"(男或女或保密)",
-  title:"称号",
-  clan:"战队名称"
-};//这里的gender填文字，后面的都用数字
+  name:"中心节点的用户昵称",<!-- 填入中心节点的用户昵称 -->
+  avatar:"https://图片url",<!-- 填入中心节点的用户的头像url -->
+  level:30,<!-- 这里填入主用户等级 -->
+  gender:"(男或女或保密)",<!-- 这里填入主用户的性别，这里填文字，下文出现的性别只能用数字 -->
+  title:"称号",<!-- 这里填入主用户的称号 -->
+  clan:"战队名称"<!-- 填入主用户的战队名称 -->
+};
 const relMap={
   "0001":{type:"CP",color:"#ff9a9e"},
   "0002":{type:"师父",color:"#6ecb63"},
@@ -76,7 +76,7 @@ const relMap={
   "0006":{type:"基友",color:"#5e60ce"}
 };
 const relations={
-  "0001":[{id:"f217",nickName:"0001号CP关系的用户昵称",avatarUrl:"https://图片url",level:30,gender:1,intimacy:217,clan:"战队名称"}],//gender中数字是性别男1,女2,保密0,intimacy是亲密度
+  "0001":[{id:"f217",nickName:"0001号CP关系的用户昵称",avatarUrl:"https://图片url",level:30,gender:1,intimacy:217,clan:"战队名称"}],<!-- gender中数字是性别男1,女2,保密0,intimacy是亲密度，id无特殊要求，可以是f加亲密度也可以是f加玩家短id -->
   "0002":[{id:"f100",nickName:"0002号师傅关系的用户昵称",avatarUrl:"https://图片url",level:30,gender:0,intimacy:100,clan:"战队名称"}],//gender中数字是性别男1,女2,保密0,intimacy是亲密度
   "0003":[
     {id:"f892",nickName:"0003号徒弟关系的用户昵称",avatarUrl:"https://头像url",level:30,gender:2,intimacy:100,clan:"战队名称"},//gender中数字是性别男1,女2,保密0,intimacy是亲密度
@@ -97,7 +97,7 @@ const relations={
     {id:"f531",nickName:"0006号基友关系的用户昵称",avatarUrl:"https://图片url",level:30,gender:2,intimacy:531,clan:"战队名称"},
     {id:"f168",nickName:"0006号基友关系的用户昵称",avatarUrl:"https://图片url",level:30,gender:1,intimacy:168,clan:"战队名称"},
     {id:"f326",nickName:"0006号基友关系的用户昵称",avatarUrl:"https://图片url",level:30,gender:2,intimacy:326,clan:"战队名称"}
-  ]
+  ]<!-- 从这里开始你就不用改参数了 -->
 };
 
 const nodes=[me],links=[];
@@ -105,7 +105,7 @@ Object.entries(relations).forEach(([k,arr])=>{
   const {type,color}=relMap[k];
   arr.forEach(f=>{
     const avatarReal=f.avatarUrl && !f.avatarUrl.startsWith("avatar://") && f.avatarUrl!=="" ? f.avatarUrl : `https://ui-avatars.com/api/?name=${encodeURIComponent(f.nickName||"玩家")}&background=random&size=80`;
-    nodes.push({...f,nickName:f.nickName,avatarReal,intimacy:f.intimacy,relationType:type,gender:f.gender===0?"保密":f.gender===1?"男":"女",clan:f.clan||"无家族"});
+    nodes.push({...f,nickName:f.nickName,avatarReal,intimacy:f.intimacy,relationType:type,gender:f.gender===0?"保密":f.gender===1?"男":"女",clan:f.clan||"无战队"});
     links.push({source:me.id,target:f.id,relationType:type,color,value:f.intimacy});
   });
 });
@@ -203,7 +203,7 @@ function showTooltip(e,d){
     <div class="tooltip-info">
       <div>关系: <b style="color:${relMap[Object.keys(relMap).find(k=>relMap[k].type===d.relationType)].color}">${d.relationType||"自己"}</b></div>
       <div>等级: ${d.level}</div>
-      <div>家族: ${d.clan||"无家族"}</div>
+      <div>战队: ${d.clan||"无战队"}</div>
       <div>亲密度: <b>${d.intimacy||"无"}</b></div>
       <div>性别: ${d.gender||"保密"}</div>
     </div>
