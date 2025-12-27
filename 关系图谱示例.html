@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>落曦关系图谱</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+body{margin:0;padding:0;background:linear-gradient(135deg,#e0f0ff,#c5e3ff);font-family:"Microsoft YaHei",sans-serif;overflow:hidden;}
+.container{position:relative;width:100vw;height:100vh;}
+#graph{width:100%;height:100%;}
+.header{position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.85);border-radius:20px;padding:15px 30px;box-shadow:0 5px 15px rgba(0,0,0,.1);z-index:100;display:flex;align-items:center;justify-content:center;flex-direction:column;max-width:400px;border:2px solid #4a90e2;}
+.header-main{display:flex;align-items:center;margin-bottom:8px;}
+.user-avatar{width:60px;height:60px;border-radius:50%;margin-right:15px;border:3px solid #ff7979;background:#f0f8ff;display:flex;align-items:center;justify-content:center;color:#ff7979;font-weight:bold;}
+.user-info h2{margin:0;color:#333;font-size:20px;font-weight:bold;}
+.user-title{color:#ff6b6b;font-size:14px;margin-top:5px;font-weight:bold;}
+.clan-info{color:#4a90e2;font-size:14px;margin-top:2px;}
+.intimacy-display{background:linear-gradient(to right,#ff9a9e,#fad0c4);border-radius:15px;padding:5px 15px;margin-top:10px;color:white;font-weight:bold;font-size:14px;box-shadow:0 3px 6px rgba(0,0,0,.1);}
+.legend{position:absolute;bottom:20px;left:20px;background:rgba(255,255,255,.85);border-radius:15px;padding:15px;box-shadow:0 5px 15px rgba(0,0,0,.1);z-index:100;max-width:250px;}
+.legend h3{margin:0 0 10px 0;color:#333;font-size:16px;}
+.legend-item{display:flex;align-items:center;margin-bottom:8px;font-size:14px;}
+.legend-color{width:20px;height:20px;border-radius:50%;margin-right:10px;border:2px solid white;}
+.node{cursor:pointer;filter:drop-shadow(0 3px 5px rgba(0,0,0,.2));}
+.tooltip{position:absolute;background:rgba(255,255,255,.95);border-radius:12px;padding:15px;box-shadow:0 8px 20px rgba(0,0,0,.15);max-width:250px;z-index:100;opacity:0;transition:opacity .3s;border:1px solid #ddd;pointer-events:none;}
+.tooltip-header{display:flex;align-items:center;margin-bottom:10px;border-bottom:1px solid #eee;padding-bottom:10px;}
+.tooltip-avatar{width:50px;height:50px;border-radius:50%;margin-right:10px;border:2px solid #4a90e2;}
+.tooltip-name{font-weight:bold;font-size:18px;color:#333;}
+.tooltip-title{color:#ff7979;font-size:14px;margin-top:3px;}
+.tooltip-info{padding-top:8px;color:#666;font-size:14px;line-height:1.5;}
+.bg-element{position:absolute;opacity:.08;z-index:1;pointer-events:none;}
+.avatar-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center;border-radius:50%;overflow:hidden;background:#f0f8ff;}
+.avatar-image{width:100%;height:100%;object-fit:cover;}
+</style>
+</head>
+<body>
+<div class="container">
+  <div id="bg-elements"></div>
+  <div class="header">
+    <div class="header-main">
+      <img class="user-avatar" src="https://thirdwx.qlogo.cn/mmopen/vi_32/PiajxSqBRaELpFj6joaBQuXsickEUVdkibj5xIpKUDjZBfwfmnOtNSLrQe5VI5yUXZElFrjoC8sVJuDRIORpnMnAOjtIpibbRUa1nccdkcxLQL1K1icBGZeDFnQ/132">
+      <div class="user-info">
+        <h2>落曦（彩笔）</h2>
+        <div class="user-title">人间锦鲤</div>
+        <div class="clan-info">清幽阁</div>
+      </div>
+    </div>
+    <div class="intimacy-display">亲密度满100的好友才能出现在关系图谱</div>
+  </div>
+  <div class="legend">
+    <h3>关系图例</h3>
+    <div class="legend-item"><div class="legend-color" style="background:#ff9a9e"></div><span>CP</span></div>
+    <div class="legend-item"><div class="legend-color" style="background:#6ecb63"></div><span>师父</span></div>
+    <div class="legend-item"><div class="legend-color" style="background:#4da6ff"></div><span>徒弟</span></div>
+    <div class="legend-item"><div class="legend-color" style="background:#ffd166"></div><span>搭档</span></div>
+    <div class="legend-item"><div class="legend-color" style="background:#db4dff"></div><span>闺蜜</span></div>
+    <div class="legend-item"><div class="legend-color" style="background:#5e60ce"></div><span>基友</span></div>
+  </div>
+  <svg id="graph"></svg>
+  <div class="tooltip"></div>
+</div>
+
+<script>
+const me = {
+  id: "center",
+  name: "落曦（彩笔）",
+  avatar: "https://thirdwx.qlogo.cn/mmopen/vi_32/PiajxSqBRaELpFj6joaBQuXsickEUVdkibj5xIpKUDjZBfwfmnOtNSLrQe5VI5yUXZElFrjoC8sVJuDRIORpnMnAOjtIpibbRUa1nccdkcxLQL1K1icBGZeDFnQ/132",
+  level: 55,
+  gender: "女",
+  title: "人间锦鲤",
+  clan: "清幽阁"
+};
+
+
+const relMap = {
+  "0001": { type: "CP", color: "#ff9a9e" },
+  "0002": { type: "师父", color: "#6ecb63" },
+  "0003": { type: "徒弟", color: "#4da6ff" },
+  "0004": { type: "搭档", color: "#ffd166" },
+  "0005": { type: "闺蜜", color: "#db4dff" },
+  "0006": { type: "基友", color: "#5e60ce" }
+};
+
+const relations = {
+  "0001": [
+    {
+      id: "f35033338",
+      nickName: "辞攘不会滞",
+      avatarUrl: "https://thirdwx.qlogo.cn/mmopen/vi_32/HrUnmzkiarX7PaEPELwzcqQkA0fZm94ia2JkjpWh6SYwqBwMp6ficRox9M9MNaMSL73VDknZoE4icVcdseZokN1CWpLdpLwbVicRYOC76UmF1YKY/132",
+      level: 41,
+      gender: 1,
+      intimacy: 274,
+      clan: "清幽阁"
+    }
+  ],
+  "0002": [
+    {
+      id: "f42285318",
+      nickName: "挽歌.",
+      avatarUrl: "https://thirdwx.qlogo.cn/mmopen/vi_32/iaZcKhvDqZ7ZWlRxQ9amkEoN9f37YIiahp9OqPYro7DIA7A535qzTa8cZjDxfwDiaCVqCREibcQkedxmkMV1EBCELH2WicbG5CCcBq25Uib5PHq8o/132",
+      level: 63,
+      gender: 2,
+      intimacy: 361,
+      clan: "独揽九天月"
+    }
+  ],
+  "0003": [
+    {
+      id: "f6688473",
+      nickName: "ST.曦辞",
+      avatarUrl: "https://thirdwx.qlogo.cn/mmopen/vi_32/PiajxSqBRaEK06hv5DrA8p7UJ8SJTArWBQQIk7TAcTRJzk8Jcql8XcFaq6OmPhr1N8nZ6b015EdbDpfd0NPZJ9a9QlianFc9REtATtOH9hnQhBYWicZmKPYLg/132",
+      level: 19,
+      gender: 2,
+      intimacy: 108,
+      clan: ""
+    },
+    {
+      id: "f50571045",
+      nickName: "样",
+      avatarUrl: "https://thirdqq.qlogo.cn/qqapp/1109681984/A384E421AF20828D2F10C35DBAB6F2E5/100",
+      level: 33,
+      gender: 2,
+      intimacy: 128,
+      clan: "ST.忆挽离笙歌"
+    },
+    {
+      id: "f49236723",
+      nickName: "曦辞✨",
+      avatarUrl: "https://thirdqq.qlogo.cn/qqapp/1109681984/184A471A859E73DE9381C1F92C1226F0/100",
+      level: 19,
+      gender: 0,
+      intimacy: 106,
+      clan: "ST.忆挽离笙歌"
+    }
+  ],
+  "0004": [
+    {
+      id: "f36424324",
+      nickName: "零屿.",
+      avatarUrl: "https://thirdwx.qlogo.cn/mmopen/vi_32/PiajxSqBRaELWfB0w0voQssAfu0QvibN0SicOZ6ziajHo5gTPk5nNScwicteUHO1V4cuc5GUKgYPqR7fzzVMT7FLicF4pq9PXgRQHQpMrPiaZamx26JfWrZKR35RA/132",
+      level: 63,
+      gender: 2,
+      intimacy: 193,
+      clan: "RF.雨林阁"
+    },
+    {
+      id: "f49736776",
+      nickName: "梨紫✘",
+      avatarUrl: "https://thirdqq.qlogo.cn/qqapp/1109681984/A65A0E1C50BD8C9F35379241A04575A4/100",
+      level: 57,
+      gender: 2,
+      intimacy: 319,
+      clan: "RF.雨林阁"
+    },
+    {
+      id: "f13282917",
+      nickName: "D3.js",
+      avatarUrl: "avatar://0008",
+      level: 51,
+      gender: 1,
+      intimacy: 123,
+      clan: "思羽家族"
+    }<!--这位是我，大家可以去玩我的地图-->
+  ],
+  "0005": [
+    {
+      id: "f39670621",
+      nickName: "本来讨厌下雨的天空",
+      avatarUrl: "https://thirdwx.qlogo.cn/mmopen/vi_32/plBV61lCKIuics2Ngwuzrh8sT06jPiaViaErLHd7iccsKwziaDKGIdGyZM38lRmxNDNZTOQSMibLfeBhKicFRNpaqM9TLEUQKuIEyqdD3pUxHGGpmo/132",
+      level: 60,
+      gender: 2,
+      intimacy: 338,
+      clan: "YL.鸢落阁"
+    },
+    {
+      id: "f50365872",
+      nickName: "可爱的猫猫",
+      avatarUrl: "avatar://0005",
+      level: 32,
+      gender: 0,
+      intimacy: 140,
+      clan: "CHN"
+    },
+    {
+      id: "f44602703",
+      nickName: "烯.",
+      avatarUrl: "https://p5-plat.wsukwai.com/bs2/zt-image-host/08ccca96a80610b3f1f1d201",
+      level: 49,
+      gender: 2,
+      intimacy: 104,
+      clan: "RF.雨林阁"
+    }
+  ],
+  "0006": [
+    {
+      id: "f16550982",
+      nickName: "九月秋雨༊",
+      avatarUrl: "https://thirdqq.qlogo.cn/qqapp/1109681984/3609273C7FEB0207B9A64A281A27DE25/100",
+      level: 59,
+      gender: 1,
+      intimacy: 338,
+      clan: "清幽阁"
+    },
+    {
+      id: "f50221578",
+      nickName: "sszssz～",
+      avatarUrl: "https://thirdqq.qlogo.cn/qqapp/1109681984/76252C34BF6D4F2C8256DA32AF3D15D0/100",
+      level: 52,
+      gender: 1,
+      intimacy: 123,
+      clan: "SW.神雾阁"
+    },
+    {
+      id: "f36293629",
+      nickName: "GY.小鱼",
+      avatarUrl: "https://img3.tapimg.com/avatars/etag/FpVXgsl1J7SCOH5P3ZmwkqCZZWcW.png?imageMogr2/auto-orient/strip/thumbnail/!270x270r/gravity/Center/crop/270x270/format/jpg/interlace/1/quality/80",
+      level: 51,
+      gender: 2,
+      intimacy: 113,
+      clan: "幻雨亭"
+    }
+  ]
+};
+
+/* ---------- 4. 构造 nodes & links ---------- */
+const nodes = [me];
+const links = [];
+Object.entries(relations).forEach(([k, arr]) => {
+  const { type, color } = relMap[k];
+  arr.forEach(f => {
+    nodes.push({
+      ...f,
+      id: f.id,
+      nickName: f.nickName,
+      avatarReal: f.avatarUrl,
+      intimacy: f.intimacy,
+      relationType: type,
+      gender: f.gender === 0 ? "保密" : f.gender === 1 ? "男" : "女",
+      clan: f.clan || "无家族"
+    });
+    links.push({ source: me.id, target: f.id, relationType: type, color, value: f.intimacy });
+  });
+});
+
+/* ---------- 5. 背景装饰 ---------- */
+const bg = d3.select("#bg-elements");
+const emojis = ["🔨", "🥚", "🎮", "⭐", "🎖️"];
+for (let i = 0; i < 25; i++) {
+  bg.append("div").classed("bg-element", true)
+    .style("font-size", `${Math.random() * 40 + 20}px`)
+    .style("left", `${Math.random() * 100}%`)
+    .style("top", `${Math.random() * 100}%`)
+    .text(emojis[Math.floor(Math.random() * emojis.length)]);
+}
+
+/* ---------- 6. D3 力导向图 ---------- */
+const width = window.innerWidth, height = window.innerHeight;
+const svg = d3.select("#graph").attr("width", width).attr("height", height);
+const container = svg.append("g");
+
+const simulation = d3.forceSimulation(nodes)
+  .force("link", d3.forceLink(links).id(d => d.id).distance(d => {
+    const distMap = { CP: 100, 师父: 180, 徒弟: 220, 搭档: 160, 闺蜜: 150, 基友: 170 };
+    return distMap[d.relationType] || 180;
+  }))
+  .force("charge", d3.forceManyBody().strength(-300))
+  .force("center", d3.forceCenter(width / 2, height / 2))
+  .force("collision", d3.forceCollide().radius(d => d.id === "center" ? 80 : 50));
+
+const link = container.append("g").selectAll("line")
+  .data(links).enter().append("line")
+  .attr("stroke", d => d.color).attr("stroke-width", 2)
+  .attr("stroke-dasharray", "5,2").attr("stroke-opacity", 0.6);
+
+const linkText = container.append("g").selectAll("text")
+  .data(links).enter().append("text")
+  .text(d => d.value).attr("font-size", 12).attr("font-weight", "bold")
+  .attr("fill", "#2c3e50").attr("pointer-events", "none");
+
+const node = container.append("g").selectAll("g")
+  .data(nodes).enter().append("g")
+  .attr("class", "node")
+  .call(d3.drag()
+    .on("start", dragstarted)
+    .on("drag", dragged)
+    .on("end", dragended))
+  .on("mouseover", showTooltip)
+  .on("mouseout", hideTooltip);
+
+node.append("circle")
+  .attr("r", d => d.id === "center" ? 40 : 32)
+  .attr("fill", "#fff")
+  .attr("stroke", d => d.relationType ? relMap[Object.keys(relMap).find(k => relMap[k].type === d.relationType)].color : "#ff7979")
+  .attr("stroke-width", 4);
+
+const avatar = node.append("foreignObject")
+  .attr("width", d => d.id === "center" ? 80 : 64)
+  .attr("height", d => d.id === "center" ? 80 : 64)
+  .attr("x", d => d.id === "center" ? -40 : -32)
+  .attr("y", d => d.id === "center" ? -40 : -32);
+avatar.append("xhtml:div").attr("class", "avatar-container")
+  .html(d => {
+    const url = d.avatarReal || d.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(d.nickName || d.name || "玩家")}&background=random&size=80`;
+    return `<img src="${url}" class="avatar-image" onerror="this.src='https://via.placeholder.com/60?text=${(d.nickName || d.name).slice(-2)}'">`;
+  });
+
+node.filter(d => d.id !== "center")
+  .append("text").attr("dy", -12).attr("text-anchor", "middle")
+  .attr("fill", d => relMap[Object.keys(relMap).find(k => relMap[k].type === d.relationType)].color)
+  .attr("font-weight", "bold").text(d => d.relationType);
+node.filter(d => d.id !== "center")
+  .append("text").attr("dy", 45).attr("text-anchor", "middle")
+  .attr("fill", "#ff6b6b").attr("font-size", 14).attr("font-weight", "bold")
+  .text(d => d.intimacy);
+
+function dragstarted(e, d) { if (!e.active) simulation.alphaTarget(.3); d.fx = d.x; d.fy = d.y; }
+function dragged(e, d) { d.fx = e.x; d.fy = e.y; }
+function dragended(e, d) { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
+
+simulation.on("tick", () => {
+  link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+      .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+  linkText.attr("x", d => (d.source.x + d.target.x) / 2).attr("y", d => (d.source.y + d.target.y) / 2 + 3);
+  node.attr("transform", d => `translate(${d.x},${d.y})`);
+});
+
+svg.call(d3.zoom().scaleExtent([.5, 3]).on("zoom", e => container.attr("transform", e.transform)));
+
+function showTooltip(e, d) {
+  const t = d3.select(".tooltip");
+  t.html(`
+    <div class="tooltip-header">
+      <img src="${d.avatarReal || d.avatar}" class="tooltip-avatar" onerror="this.src='https://via.placeholder.com/50?text=${(d.nickName || d.name).slice(-2)}'"/>
+      <div>
+        <div class="tooltip-name">${d.nickName || d.name}</div>
+        <div class="tooltip-title">${d.title || "无称号"}</div>
+      </div>
+    </div>
+    <div class="tooltip-info">
+      <div>关系: <b style="color:${relMap[Object.keys(relMap).find(k => relMap[k].type === d.relationType)].color}">${d.relationType || "自己"}</b></div>
+      <div>等级: ${d.level}</div>
+      <div>家族: ${d.clan || "无家族"}</div>
+      <div>亲密度: <b>${d.intimacy || "无"}</b></div>
+      <div>性别: ${d.gender || "保密"}</div>
+    </div>
+  `).style("left", (e.pageX + 15) + "px").style("top", (e.pageY - 15) + "px").style("opacity", 1);
+}
+function hideTooltip() { d3.select(".tooltip").style("opacity", 0); }
+</script>
+</body>
+</html>
